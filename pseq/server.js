@@ -1,63 +1,129 @@
 const express = require('express');
-const { Sequelize, UUIDV4 } = require('sequelize');
-const sequelize = require('sequelize');
+const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
+const _USERS = require('./users.json');
 
 const app = express();
 const port = 4000;
 
-const connection = new Sequelize('db','user','pass',{
-    host:'localhost',
-    dialect:'sqlite',
-    storage:'db.sqlite',
-    operatorsAliases:false,
-    define:{
-        freezeTableName: true
+const connection = new Sequelize('db', 'user', 'pass', {
+  host: 'localhost',
+  dialect: 'sqlite',
+  storage: 'db.sqlite',
+  operatorsAliases: false,
+  define: {
+    freezeTableName: true 
+  }
+})
+
+const User = connection.define('User', {
+  name: Sequelize.STRING, 
+  email: {
+    type: Sequelize.STRING,
+    validate: {
+      isEmail: true
     }
+  },
+  password: {
+    type: Sequelize.STRING,
+    validate: {
+      isAlphanumeric: true 
+    }
+  }
+})
+
+app.get('/findall', (req, res) => {
+  User.findAll({
+    where: {
+      name: {
+        [Op.like]: 'Dav%'
+      }
+    }
+  })  
+  .then(user => {
+    res.json(user);
+  })
+  .catch(error => {
+    console.log(error);
+    res.status(404).send(error);
+  })
+})
+
+app.get('/findOne', (req, res) => {
+  User.findByPk('44')
+      .then(user => {
+        res.json(user);
+      })
+      .catch(error => {
+        console.log(error);
+        res.status(404).send(error);
+      })  
+})
+
+app.delete('/remove', (req, res) => {
+  User.destroy({
+    where: { id: 50 }
+  })
+  .then(() => {
+    res.send('User successfully deleted');
+  })
+  .catch(error => {
+    console.log(error);
+    res.status(404).send(error);
+  })  
+})
+
+app.put('/update', (req, res) => {
+  User.update({
+    name: 'Michael Keaton', 
+    password: 'password'
+  }, { where: { id: 55 }})
+      .then(rows => {
+        res.json(rows);
+      })
+      .catch(error => {
+        console.log(error);
+        res.status(404).send(error);
+      })  
+})
+
+app.post('/post', (req, res) => {
+  const newUser = req.body.user;
+  User.create({
+    name: newUser.name,
+    email: newUser.email 
+  })
+  .then(user => {
+    res.json(user);
+  })
+  .catch(error => {
+    console.log(error);
+    res.status(404).send(error);
+  })
+})
+
+connection
+  .sync({
+    // logging: console.log
+    // force: true
+  })
+  .then(() => {
+    User.bulkCreate(_USERS)
+      .then(users => {
+        console.log('Success adding users');
+      })
+      .catch(error => {
+        console.log(error);
+      })
+  })
+  .then(() => {
+    console.log('Connection to database established successfully.');
+  })
+  .catch(err => {
+    console.error('Unable to connect to the database:', err);
 });
 
-const User = connection.define('User',{
-    uuid:{
-        type: Sequelize.UUID,
-        primaryKey: true,
-        defaultValue: UUIDV4
-    },
-    first: Sequelize.STRING,
-    last: Sequelize.STRING,
-    full_name: Sequelize.STRING,
-    bio: Sequelize.TEXT},
-    {
-        hooks: {
-            beforeValidate: () => {
-                console.log('before validate');
-            },
-            afterValidate: () => {
-                console.log('after validate');
-            },
-            beforeCreate: (user) => {
-                user.full_name = `${user.first} ${user.last}`;
-                console.log('before create');
-            },
-            afterCreate: () => {
-                console.log('after create');
-            },
-        }
-});
-
-connection.sync({
-    logging: console.log,
-    force: true
-}).then(() => {
-    User.create({
-        first: 'Joe',
-        last: 'Smith',
-        bio: 'New bio entry'
-    })
-}).then(() => {
-    console.log('Connection to database successfully established.');
-}).catch(err => {
-    console.error('Unable to connect to database',err);
-});
 
 app.listen(port, () => {
-    console.log(`Running server on port ${port}`);
+  console.log('Running server on port ' + port);
 });
